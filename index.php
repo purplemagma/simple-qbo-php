@@ -67,6 +67,7 @@ else {
     $signatures['oauth_token'] = $access_token;
     $signatures['oauth_secret'] = $access_token_secret;
 
+    // Do GET no parameters
     $oauthObject->reset();
     $url =  'https://qb.sbfinance.intuit.com/v3/company/' . $realmId . '/companyinfo/' . $realmId;
     $result = $oauthObject->sign(array(
@@ -78,24 +79,53 @@ else {
     curl_setopt($ch, CURLOPT_URL, $url);
     $companyInfo = curl_exec($ch);
     
+    // Do GET with parameters
     $oauthObject->reset();
     $url =  'https://qb.sbfinance.intuit.com/v3/company/' . $realmId . '/query';
-    $params = 'query=' . OAuthSimple::_oauthEscape('select * from Item');
-
     $result = $oauthObject->sign(array(
         'path'      => $url,
         'action'    => 'GET',
-        'parameters' => $params,
+        'parameters' => array('query'=>'select * from Item'),
         'signatures'=> $signatures));
 
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/json', 'Authorization: ' . $result['header'], 'Content-Type: text/plain'));
-    curl_setopt($ch, CURLOPT_URL, $url.'?'.$params);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/json',
+      'Authorization: ' . $result['header'],
+      'Content-Type: text/plain'));
+    curl_setopt($ch, CURLOPT_URL, $url.'?'.$result['queryString']);
     $itemList = curl_exec($ch);
 
+    // Do POST
+    $oauthObject->reset();
+    $url =  'https://qb.sbfinance.intuit.com/v3/company/' . $realmId . '/item';
+    $json_body = '
+         {
+            "Name" : "TestItem1",
+            "Active" : true,
+            "SubItem" : false,
+            "IncomeAccountRef": { "value" : "6" , "name" : "Gross Receipts"}
+         }
+    ';
+    $result = $oauthObject->sign(array(
+        'path'      => $url,
+        'action'    => 'POST',
+        'signatures'=> $signatures));
+
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/json',
+          'Authorization: ' . $result['header'],
+          'Content-Type: application/json',
+          'Content-Length: ' . strlen($json_body)));
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $json_body);
+    curl_setopt($ch, CURLOPT_ENCODING, '');
+    $postResult = curl_exec($ch);
+    
     $output = "<p>Access Token: $access_token<BR>
                   Token Secret: $access_token_secret</p>
                   <p>CompanyInfo: ".$companyInfo . "</p>
-                  <p>Item List: "  . $itemList . "</p>";
+                  <p>Item List: "  . $itemList . "</p>
+                  <p>POST result: " . $postResult . "</p>";
+
     curl_close($ch);
 }        
 ?>
